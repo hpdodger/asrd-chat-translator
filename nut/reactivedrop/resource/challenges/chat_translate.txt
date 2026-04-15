@@ -1,0 +1,7 @@
+"CHALLENGE" {
+	"name"	"chat_translate"
+	"description"	"chat_translate"
+
+	"convars" {
+	}
+}
