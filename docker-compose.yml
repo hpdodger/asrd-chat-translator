@@ -19,12 +19,14 @@ services:
       - libretranslate
     environment:
       GAME_DATA_PATH: /gamedata
-      LIBRETRANSLATE_URL: http://libretranslate:5000
-      LIBRETRANSLATE_API_KEY: ${LIBRETRANSLATE_API_KEY:-}
     volumes:
       - type: bind
         source: ${HOST_GAME_DATA_PATH}
         target: /gamedata
+      - type: bind
+        source: ./app-config.json
+        target: /app/app-config.json
+        read_only: true
 
 volumes:
   lt_models:

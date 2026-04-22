@@ -1,9 +1,13 @@
 # Dependencies
 node_modules/
 
-# Environment variables
+# Environment variables (used only by docker-compose for LT_LOAD_ONLY etc.)
 .env
 !.env.example
+
+# App config (contains paths and API keys)
+app-config.json
+!app-config.example.json
 
 # Logs
 *.log

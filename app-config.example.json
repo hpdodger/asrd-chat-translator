@@ -1,0 +1,10 @@
+{
+  "gameDataPath": "C:/path/to/game/reactivedrop/save/vscripts",
+  "targetLang": "en",
+  "translatorConfig": {
+    "translatorId": "libre",
+    "url": "http://localhost:5000",
+    "apiKey": "",
+    "loadOnly": ["en", "ru", "zh", "de"]
+  }
+}
