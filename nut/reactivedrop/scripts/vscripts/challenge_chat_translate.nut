@@ -1,2 +1,2 @@
-// Логика переводчика находится в mapspawn.nut (загружается на каждой карте).
-// Guard ChatTranslateLoaded предотвращает двойную инициализацию.
+// The translator logic is in mapspawn.nut (loaded on every map).
+// Guard ChatTranslateLoaded prevents double initialization.
