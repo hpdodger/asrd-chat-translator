@@ -78,7 +78,7 @@ cp app-config.example.json app-config.json
 cp app-config.example.json app-config.json
 ```
 
-Указать `translatorConfig.url: "http://libretranslate:5000"` (имя сервиса внутри Docker-сети).  
+`translatorConfig.url` уже содержит правильное значение `"http://libretranslate:5000"` — имя сервиса внутри Docker-сети.  
 `gameDataPath` для Docker не важен — он перекрывается автоматически переменной `GAME_DATA_PATH=/gamedata`.
 
 ### 2. Создать `.env`
@@ -104,6 +104,7 @@ docker compose up --build
 ```
 
 При первом запуске LibreTranslate скачает языковые модели — это занимает несколько минут.  
+Сервис-переводчик запустится автоматически после того как LibreTranslate будет готов (healthcheck).  
 Модели сохраняются в Docker volume и при следующих запусках не скачиваются повторно.
 
 ### 4. Остановить
@@ -124,7 +125,7 @@ docker compose down
 cp app-config.example.json node/app-config.json
 ```
 
-Указать реальный `gameDataPath` и `translatorConfig.url: "http://localhost:5000"`.
+Указать реальный `gameDataPath` и вернуть `translatorConfig.url: "http://localhost:5000"` (для запуска без Docker).
 
 ### 2. Запустить LibreTranslate отдельно
 

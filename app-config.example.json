@@ -3,7 +3,7 @@
   "targetLang": "en",
   "translatorConfig": {
     "translatorId": "libre",
-    "url": "http://localhost:5000",
+    "url": "http://libretranslate:5000",
     "apiKey": "",
     "loadOnly": ["en", "ru", "zh", "de"]
   }

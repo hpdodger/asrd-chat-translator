@@ -48,7 +48,15 @@ export class LibreTranslator extends BaseTranslator {
 
   public async getLanguages(): Promise<string[]> {
     const response = await axios.get(`${this._url}/languages`, { timeout: 5000 });
-    const codes = (response.data as Array<{ code: string }>).map(l => l.code);
-    return this._loadOnly.length > 0 ? codes.filter(c => this._loadOnly.includes(c)) : codes;
+    const all = (response.data as Array<{ code: string }>).map(l => l.code);
+
+    if (this._loadOnly.length === 0) return all;
+
+    // LibreTranslate may report extended codes (e.g. "zh-Hans") for languages
+    // configured with their base code ("zh"). Return the base code from loadOnly
+    // so downstream consumers (game scripts) always see the short form.
+    return this._loadOnly.filter(configured =>
+      all.some(lt => lt === configured || lt.startsWith(configured + "-"))
+    );
   }
 }

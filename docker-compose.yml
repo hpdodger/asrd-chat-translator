@@ -10,13 +10,20 @@ services:
       LT_API_KEYS: ${LT_API_KEYS:-false}
     volumes:
       - lt_models:/home/libretranslate/.local/share/argos-translate
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request,json,os,sys;r=json.load(urllib.request.urlopen('http://localhost:5000/languages',timeout=5));c=[x['code'] for x in r];sys.exit(0 if all(any(lt==l or lt.startswith(l+'-') for lt in c) for l in os.getenv('LT_LOAD_ONLY','').split(',') if l) else 1)\" 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
   translator:
     build:
       context: ./node
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - libretranslate
+      libretranslate:
+        condition: service_healthy
     environment:
       GAME_DATA_PATH: /gamedata
     volumes:
