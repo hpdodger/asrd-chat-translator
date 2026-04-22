@@ -39,7 +39,7 @@ export class LibreTranslator extends BaseTranslator {
     if (this._apiKey) body.api_key = this._apiKey;
 
     const response = await axios.post(`${this._url}/translate`, body, {
-      timeout: 7000,
+      timeout: 15000,
       headers: { "Content-Type": "application/json" },
     });
 

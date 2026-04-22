@@ -1,6 +1,6 @@
 "CHALLENGE" {
-	"name"	"chat_translate"
-	"description"	"chat_translate"
+	"name"	"Chat Translator"
+	"description"	"magic chat translator by typical russian"
 
 	"convars" {
 	}

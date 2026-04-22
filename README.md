@@ -1,24 +1,34 @@
 # asrd-chat-translator
 
-Автоматический перевод игрового чата в Alien Swarm: Reactive Drop.  
-Работает в лобби и во время миссий.
+## Table of Contents
+- [How it works](#how-it-works)
+- [Game script installation](#game-script-installation)
+- [Script structure](#script-structure)
+- [Configuration](#configuration)
+- [Running the service (Docker)](#running-the-service-docker)
+- [Running the service (without Docker)](#running-the-service-without-docker)
+- [In-game chat commands](#in-game-chat-commands)
+- [Project structure](#project-structure)
+- [Adding a custom translator](#adding-a-custom-translator)
 
-## Как это работает
+## How it works
 
 ```
-Игра (Squirrel)  →  translate_req  →  Node.js  →  Translator Instance
+Game (Squirrel)  →  translate_req  →  Node.js  →  Translator Instance
                  ←  translate_resp  ←
 ```
 
-Squirrel-скрипт перехватывает сообщения чата и записывает их в файл.  
-Node.js-сервис читает файл, отправляет текст в Translator Instance, записывает результат обратно.  
-Каждый игрок получает перевод на своём языке.
+The Squirrel script intercepts chat messages and writes them to a file.  
+The Node.js service reads the file, sends the text to a Translator Instance, and writes the result back.  
+Each player receives the translation in their own language.
 
 ---
 
-## Установка игрового скрипта
+↑ [Table of Contents](#table-of-contents)
 
-Скопировать содержимое папки `nut/reactivedrop/` в папку мода игры:
+## Game script installation
+
+Copy the contents of `nut/reactivedrop/` into the game's mod folder:
 
 **Windows:**
 ```
@@ -29,85 +39,102 @@ C:\...\Steam\steamapps\common\Alien Swarm Reactive Drop\reactivedrop\
 ~/.steam/steam/steamapps/common/Alien Swarm Reactive Drop/reactivedrop/
 ```
 
-Копируются следующие файлы:
-- `scripts/vscripts/mapspawn.nut` — скрипт для лобби (загружается на каждой карте)
-- `scripts/vscripts/challenge_chat_translate.nut` — скрипт для миссий (загружается через challenge)
-- `resource/challenges/chat_translate.txt` — описание challenge
-- `cfg/autoexec.cfg` — включает автозагрузку `mapspawn.nut`
+The following files are copied:
+- `scripts/vscripts/mapspawn.nut` — minimal lobby script (loaded on every map)
+- `scripts/vscripts/chat_translate.nut` — core module with all translator logic
+- `scripts/vscripts/challenge_chat_translate.nut` — mission script (loaded via challenge)
+- `resource/challenges/chat_translate.txt` — challenge descriptor
+- `cfg/autoexec.cfg` — enables auto-loading of `mapspawn.nut`
 
-> **Если `mapspawn.nut` уже существует** — добавить содержимое файла в конец существующего, убрав строку с guard-проверкой `ChatTranslateLoaded`.
+> **If `mapspawn.nut` already exists** — append the contents of the new `mapspawn.nut` to the end of the existing file, removing the `ChatTranslateLoaded` guard line. Thanks to the modular structure, the addition is minimal (~15 lines).
 >
-> **Если `cfg/autoexec.cfg` уже существует** — добавить строку `sv_mapspawn_nut_exec 1` в конец существующего файла.
-
-### Почему два скрипта
-
-`mapspawn.nut` в ASRD по умолчанию отключён (конвар `sv_mapspawn_nut_exec 0`). Файл `cfg/autoexec.cfg` включает его, после чего скрипт загружается на каждой карте включая лобби (`rd_lobby`). Во время миссий дополнительно срабатывает `challenge_chat_translate.nut` — встроенный guard предотвращает двойную инициализацию.
+> **If `cfg/autoexec.cfg` already exists** — append `sv_mapspawn_nut_exec 1` to the end of the existing file.
 
 ---
 
-## Конфигурация
+↑ [Table of Contents](#table-of-contents)
 
-Все настройки приложения хранятся в одном файле `app-config.json`.
+## Script structure
+
+There are three VScript files:
+
+| File | Role |
+|------|------|
+| `chat_translate.nut` | Core module — all logic, state, and chat commands |
+| `mapspawn.nut` | Minimal loader for the lobby; loads `chat_translate.nut` into the worldspawn entity scope and registers two thin event handler wrappers |
+| `challenge_chat_translate.nut` | Loaded during missions via the challenge system; the built-in `ChatTranslateLoaded` guard prevents double initialization if `mapspawn.nut` already ran |
+
+`mapspawn.nut` is disabled in ASRD by default (cvar `sv_mapspawn_nut_exec 0`). The `cfg/autoexec.cfg` file enables it, after which it is loaded on every map including the lobby (`rd_lobby`).
+
+---
+
+↑ [Table of Contents](#table-of-contents)
+
+## Configuration
+
+All application settings are stored in a single file `app-config.json`.
 
 ```bash
 cp app-config.example.json app-config.json
 ```
 
-Поля `app-config.json`:
+`app-config.json` fields:
 
-| Поле | Описание |
-|------|----------|
-| `gameDataPath` | Путь к папке vscripts игры (для standalone; в Docker перекрывается автоматически) |
-| `targetLang` | Язык перевода по умолчанию, если игрок не выбрал свой |
-| `translatorConfig.translatorId` | ID реализации переводчика (сейчас только `"libre"`) |
-| `translatorConfig.url` | URL LibreTranslate сервера |
-| `translatorConfig.apiKey` | API-ключ LibreTranslate (оставить пустым если без авторизации) |
-| `translatorConfig.loadOnly` | Список языков для загрузки и использования |
+| Field | Description |
+|-------|-------------|
+| `gameDataPath` | Path to the game's vscripts folder (for standalone; overridden automatically in Docker) |
+| `targetLang` | Default translation language if the player has not set their own |
+| `translatorConfig.translatorId` | Translator implementation ID (currently only `"libre"`) |
+| `translatorConfig.url` | LibreTranslate server URL |
+| `translatorConfig.apiKey` | LibreTranslate API key (leave empty if no auth required) |
+| `translatorConfig.loadOnly` | List of languages to load and use |
 
-Коды языков (ISO 639-1): `en` английский, `ru` русский, `zh` китайский, `de` немецкий, `fr` французский, `es` испанский, `pt` португальский, `ar` арабский, `ja` японский, `ko` корейский.
+Language codes (ISO 639-1): `en` English, `ru` Russian, `zh` Chinese, `de` German, `fr` French, `es` Spanish, `pt` Portuguese, `ar` Arabic, `ja` Japanese, `ko` Korean.
 
-> `en` обязателен — используется как fallback если запрошенный язык недоступен.
+> `en` is required — used as a fallback if the requested language is unavailable.
 
 ---
 
-## Запуск сервиса (Docker)
+↑ [Table of Contents](#table-of-contents)
 
-### 1. Создать `app-config.json`
+## Running the service (Docker)
+
+### 1. Create `app-config.json`
 
 ```bash
 cp app-config.example.json app-config.json
 ```
 
-`translatorConfig.url` уже содержит правильное значение `"http://libretranslate:5000"` — имя сервиса внутри Docker-сети.  
-`gameDataPath` для Docker не важен — он перекрывается автоматически переменной `GAME_DATA_PATH=/gamedata`.
+`translatorConfig.url` already contains the correct value `"http://libretranslate:5000"` — the service name within the Docker network.  
+`gameDataPath` is not relevant for Docker — it is automatically overridden by `GAME_DATA_PATH=/gamedata`.
 
-### 2. Создать `.env`
+### 2. Create `.env`
 
 ```bash
 cp .env.example .env
 ```
 
-Открыть `.env` и задать переменные:
+Open `.env` and set the variables:
 
 ```ini
-# Путь к папке vscripts игры на хосте
+# Path to the game's vscripts folder on the host
 HOST_GAME_DATA_PATH=D:\soft\Steam\steamapps\common\Alien Swarm Reactive Drop\reactivedrop\save\vscripts
 
-# Языки для загрузки в LibreTranslate — должно совпадать с loadOnly в app-config.json
+# Languages to load in LibreTranslate — must match loadOnly in app-config.json
 LT_LOAD_ONLY=en,ru,zh,de
 ```
 
-### 3. Запустить
+### 3. Start
 
 ```bash
 docker compose up --build
 ```
 
-При первом запуске LibreTranslate скачает языковые модели — это занимает несколько минут.  
-Сервис-переводчик запустится автоматически после того как LibreTranslate будет готов (healthcheck).  
-Модели сохраняются в Docker volume и при следующих запусках не скачиваются повторно.
+On first run LibreTranslate will download language models — this takes a few minutes.  
+The translator service starts automatically once LibreTranslate is ready (healthcheck).  
+Models are stored in a Docker volume and are not re-downloaded on subsequent runs.
 
-### 4. Остановить
+### 4. Stop
 
 ```bash
 docker compose down
@@ -115,25 +142,27 @@ docker compose down
 
 ---
 
-## Запуск сервиса (без Docker)
+↑ [Table of Contents](#table-of-contents)
 
-Требования: Node.js 20+, запущенный LibreTranslate.
+## Running the service (without Docker)
 
-### 1. Создать `node/app-config.json`
+Requirements: Node.js 20+, a running LibreTranslate instance.
+
+### 1. Create `node/app-config.json`
 
 ```bash
 cp app-config.example.json node/app-config.json
 ```
 
-Указать реальный `gameDataPath` и вернуть `translatorConfig.url: "http://localhost:5000"` (для запуска без Docker).
+Set the real `gameDataPath` and change `translatorConfig.url` to `"http://localhost:5000"` (for running without Docker).
 
-### 2. Запустить LibreTranslate отдельно
+### 2. Start LibreTranslate separately
 
 ```bash
 docker run -p 5000:5000 libretranslate/libretranslate --load-only en,ru,zh,de
 ```
 
-### 3. Запустить сервис
+### 3. Start the service
 
 ```bash
 cd node
@@ -144,71 +173,85 @@ npm start
 
 ---
 
-## Команды в игровом чате
+↑ [Table of Contents](#table-of-contents)
 
-| Команда | Описание |
-|---------|----------|
-| `!lang <код>` | Установить язык перевода для себя. Пример: `!lang ru`, `!lang zh` |
-| `!translate on` | Включить перевод (включён по умолчанию) |
-| `!translate off` | Отключить перевод |
-| `!langs` | Показать список языков, доступных на сервере |
+## In-game chat commands
 
-При подключении к лобби или игре каждый игрок видит в чате текущий статус, активный язык и список доступных языков.  
-Предпочтения сохраняются между сессиями. По умолчанию перевод включён, язык — английский.
+| Command | Description |
+|---------|-------------|
+| `!ct_lang <code>` | Set your translation language. Example: `!ct_lang ru`, `!ct_lang zh` |
+| `!ct_translate on` | Enable translation (enabled by default) |
+| `!ct_translate off` | Disable translation |
+| `!ct_langs` | Show the list of languages available on the server |
+| `!ct_help` | Show this help message |
+
+When joining a lobby or game each player sees their current status, active language, and the list of available languages in chat.  
+Preferences are saved between sessions. Translation is enabled by default; the default language is English.
+
+> **Note:** the message sender does not receive the translation in chat to avoid duplicating their own message. Instead, all translations are printed to their developer console (`~`) in the form `[Translate] <lang>: <text>`.
 
 ---
 
-## Структура проекта
+↑ [Table of Contents](#table-of-contents)
+
+## Project structure
 
 ```
 asrd-chat-translator/
-├── app-config.example.json       # Шаблон конфига приложения
-├── app-config.json               # Реальный конфиг (gitignored)
-├── .env.example                  # Шаблон переменных для Docker
-├── .env                          # Переменные для Docker (gitignored)
-├── docker-compose.yml            # Запуск LibreTranslate + Node.js сервиса
+├── app-config.example.json       # Application config template
+├── app-config.json               # Real config (gitignored)
+├── .env.example                  # Docker environment template
+├── .env                          # Docker environment (gitignored)
+├── docker-compose.yml            # Runs LibreTranslate + Node.js service
 │
-├── node/                         # Node.js сервис (TypeScript)
+├── node/                         # Node.js service (TypeScript)
 │   ├── src/
-│   │   ├── index.ts              # Точка входа: watcher, очередь, запуск
-│   │   ├── app-config.ts         # Загрузка и валидация app-config.json
-│   │   ├── translation-files.ts  # Чтение/запись IPC-файлов
-│   │   ├── queue.ts              # Асинхронная очередь переводов
+│   │   ├── index.ts              # Entry point: watcher, queue, startup
+│   │   ├── app-config.ts         # Load and validate app-config.json
+│   │   ├── translation-files.ts  # Read/write IPC files
+│   │   ├── queue.ts              # Async translation queue
 │   │   └── translators/
-│   │       ├── base-translator.ts    # Абстрактный класс + интерфейсы
-│   │       └── libre-translator.ts   # Реализация для LibreTranslate
-│   ├── dist/                     # Скомпилированный JS (gitignored)
+│   │       ├── base-translator.ts    # Abstract class + interfaces
+│   │       └── libre-translator.ts   # LibreTranslate implementation
+│   ├── dist/                     # Compiled JS (gitignored)
 │   ├── Dockerfile
 │   ├── tsconfig.json
 │   └── package.json
 │
-└── nut/reactivedrop/             # Копируется в папку игры
+└── nut/reactivedrop/             # Copied into the game folder
     ├── cfg/
     │   └── autoexec.cfg
     ├── scripts/vscripts/
-    │   ├── mapspawn.nut
+    │   ├── mapspawn.nut              — minimal loader + event handler wrappers
+    │   ├── chat_translate.nut        — core module (all logic, state, commands)
     │   └── challenge_chat_translate.nut
     └── resource/challenges/
         └── chat_translate.txt
 ```
 
-IPC-файлы создаются автоматически в папке `gameDataPath`:
+IPC files are created automatically in the `gameDataPath` folder:
 
-| Файл | Описание |
-|------|----------|
-| `translate_req` | Запрос: `id\|текст\|lang1,lang2,...` |
-| `translate_resp` | Ответ: `id\|lang1:перевод1\|lang2:перевод2\|...` |
-| `translate_langs` | Список доступных языков (обновляется при старте) |
-| `translate_prefs` | Языковые предпочтения игроков |
+| File | Description |
+|------|-------------|
+| `translate_req` | Request: `id\|text\|lang1,lang2,...` |
+| `translate_resp` | Response: `id\|lang1:translation1\|lang2:translation2\|...` |
+| `translate_langs` | Available language list (updated on startup) |
+| `translate_prefs` | Player language preferences |
 
 ---
 
-## Добавление своего переводчика
+↑ [Table of Contents](#table-of-contents)
 
-Сервис поддерживает подключение сторонних реализаций без пересборки проекта.
+## Adding a custom translator
 
-1. Создать файл, экспортирующий класс с `public static readonly id = "my-translator"` и реализующий `IBaseTranslator` из `base-translator.ts`
-2. Положить скомпилированный `.js` файл в `dist/translators/`
-3. В `app-config.json` указать `translatorConfig.translatorId: "my-translator"`
+The service supports plugging in third-party implementations without rebuilding the project.
 
-При старте сервис автоматически сканирует папку `translators/` и выбирает реализацию по совпадению `id`.
+1. Create a file exporting a class with `public static readonly id = "my-translator"` that implements `IBaseTranslator` from `base-translator.ts`
+2. Place the compiled `.js` file in `dist/translators/`
+3. Set `translatorConfig.translatorId: "my-translator"` in `app-config.json`
+
+On startup the service automatically scans the `translators/` folder and picks the implementation by matching `id`.
+
+---
+
+↑ [Table of Contents](#table-of-contents)
