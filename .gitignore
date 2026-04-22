@@ -33,7 +33,6 @@ ehthumbs.db
 Desktop.ini
 
 # Build outputs
-dist/
 build/
 out/
 *.tsbuildinfo
